@@ -630,3 +630,29 @@ textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
 
 /* ── LOADING STATE for images ── */
 .image-block img.loading { filter: blur(4px); }
+
+/* ── PAGE SETTINGS MODAL ── */
+.modal-wide { max-width: 520px !important; }
+
+.settings-section { padding: 4px 0 16px; }
+.settings-section h3 {
+  font-size: 15px;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.settings-section p {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.settings-section .btn-primary { margin-top: 4px; }
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0 20px;
+}
+
+/* ── MASTER CARD – two password rows ── */
+.master-page-info .password-display + .password-display { margin-top: 4px; }

@@ -72,8 +72,8 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 const state = {
   masterKey: null,
   masterPassword: null,
-  masterIndex: null,       // { pages: [{id, name, password}] }
-  page: null,              // { id, name, key, content }
+  masterIndex: null,       // { pages: [{id, name, callPassword, editPassword}] }
+  page: null,              // { id, key, content }
   editBlocks: [],
 };
 
@@ -201,7 +201,7 @@ async function authenticate(pw, errorId) {
     return;
   }
 
-  // Seitenpasswort?
+  // Aufruf-Passwort einer Seite?
   const pageIds = S.get('page_ids') || [];
   for (const id of pageIds) {
     const ph = S.get(`page_${id}_hash`);
@@ -317,8 +317,12 @@ function renderMasterView() {
       <div class="master-page-info">
         <h3>${escHtml(page.name)}</h3>
         <div class="password-display">
-          <span class="password-label">Passwort:</span>
-          <span class="password-value" title="Klicken zum Kopieren" onclick="copyPw('${escAttr(page.password)}')">${escHtml(page.password)}</span>
+          <span class="password-label">Aufruf:</span>
+          <span class="password-value" title="Klicken zum Kopieren" onclick="copyPw('${escAttr(page.callPassword)}')">${escHtml(page.callPassword)}</span>
+        </div>
+        <div class="password-display">
+          <span class="password-label">Bearbeitung:</span>
+          <span class="password-value" title="Klicken zum Kopieren" onclick="copyPw('${escAttr(page.editPassword)}')">${escHtml(page.editPassword)}</span>
         </div>
       </div>
       <div class="master-page-actions">
@@ -337,7 +341,7 @@ async function masterOpenPage(id) {
   const page = state.masterIndex.pages.find(p => p.id === id);
   if (!page) return;
   showSpinner('Öffne Seite…');
-  await openPage(id, page.password);
+  await openPage(id, page.callPassword);
   hideSpinner();
 }
 
@@ -347,7 +351,7 @@ async function masterDeletePage(id) {
   if (!confirm(`Seite "${page.name}" wirklich löschen?\nDies kann nicht rückgängig gemacht werden!`)) return;
 
   state.masterIndex.pages = state.masterIndex.pages.filter(p => p.id !== id);
-  ['hash','salt','content','name'].forEach(k => S.del(`page_${id}_${k}`));
+  ['hash','salt','content','name','edit_hash'].forEach(k => S.del(`page_${id}_${k}`));
   const ids = (S.get('page_ids') || []).filter(x => x !== id);
   S.set('page_ids', ids);
   await saveMasterIndex();
@@ -367,36 +371,41 @@ async function saveMasterIndex() {
 function showAddPage() { showModal('add-page-modal'); }
 function closeAddPage() {
   hideModal('add-page-modal');
-  document.getElementById('new-page-name').value = '';
-  document.getElementById('new-page-pw').value   = '';
+  document.getElementById('new-page-name').value    = '';
+  document.getElementById('new-page-call-pw').value = '';
+  document.getElementById('new-page-edit-pw').value = '';
   clearError('add-page-error');
 }
 
 async function createPage() {
-  const name = document.getElementById('new-page-name').value.trim();
-  const pw   = document.getElementById('new-page-pw').value;
+  const name   = document.getElementById('new-page-name').value.trim();
+  const callPw = document.getElementById('new-page-call-pw').value;
+  const editPw = document.getElementById('new-page-edit-pw').value;
   clearError('add-page-error');
 
-  if (!name)       return setError('add-page-error', 'Bitte einen Seitennamen eingeben.');
-  if (pw.length < 4) return setError('add-page-error', 'Passwort muss mindestens 4 Zeichen haben.');
+  if (!name)          return setError('add-page-error', 'Bitte einen Seitennamen eingeben.');
+  if (callPw.length < 4) return setError('add-page-error', 'Aufruf-Passwort muss mindestens 4 Zeichen haben.');
+  if (editPw.length < 4) return setError('add-page-error', 'Änderungs-Passwort muss mindestens 4 Zeichen haben.');
 
   showSpinner('Seite erstellen…');
-  const id   = genId();
-  const hash = await sha256hex(pw);
-  const salt = genId();
-  const key  = await deriveKey(pw, salt);
-  const enc  = await encrypt({ title: name, blocks: [] }, key);
+  const id       = genId();
+  const callHash = await sha256hex(callPw);
+  const editHash = await sha256hex(editPw);
+  const salt     = genId();
+  const key      = await deriveKey(callPw, salt);
+  const enc      = await encrypt({ title: name, blocks: [] }, key);
 
-  S.set(`page_${id}_hash`,    hash);
-  S.set(`page_${id}_salt`,    salt);
-  S.set(`page_${id}_name`,    name);
-  S.set(`page_${id}_content`, enc);
+  S.set(`page_${id}_hash`,      callHash);
+  S.set(`page_${id}_salt`,      salt);
+  S.set(`page_${id}_name`,      name);
+  S.set(`page_${id}_content`,   enc);
+  S.set(`page_${id}_edit_hash`, editHash);
 
   const ids = S.get('page_ids') || [];
   ids.push(id);
   S.set('page_ids', ids);
 
-  state.masterIndex.pages.push({ id, name, password: pw });
+  state.masterIndex.pages.push({ id, name, callPassword: callPw, editPassword: editPw });
   await saveMasterIndex();
 
   hideSpinner();
@@ -423,14 +432,15 @@ async function verifyEditPw() {
   clearError('edit-pw-error');
 
   const inputHash  = await sha256hex(pw);
-  const pageHash   = S.get(`page_${state.page.id}_hash`);
+  // Änderungs-Passwort der Seite; falls noch keins gesetzt (alte Seiten) → Aufruf-Hash als Fallback
+  const editHash   = S.get(`page_${state.page.id}_edit_hash`) || S.get(`page_${state.page.id}_hash`);
   const masterHash = S.get('master_hash');
 
-  if (inputHash === pageHash || inputHash === masterHash) {
+  if (inputHash === editHash || inputHash === masterHash) {
     closeEditPwModal();
     enterEdit();
   } else {
-    setError('edit-pw-error', 'Falsches Passwort.');
+    setError('edit-pw-error', 'Falsches Änderungs-Passwort.');
   }
 }
 
@@ -682,26 +692,32 @@ async function doChangeMasterPw() {
 }
 
 // ─────────────────────────────────────────────
-// PAGE PASSWORD CHANGE
+// PAGE SETTINGS (Passwörter ändern)
 // ─────────────────────────────────────────────
 
-function showChangePagePw() {
-  document.getElementById('change-page-new').value  = '';
-  document.getElementById('change-page-new2').value = '';
-  clearError('change-page-pw-error');
-  showModal('change-page-pw-modal');
+function showPageSettings() {
+  ['chg-call-master','chg-call-new','chg-call-new2',
+   'chg-edit-old','chg-edit-new','chg-edit-new2'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  clearError('chg-call-error');
+  clearError('chg-edit-error');
+  showModal('page-settings-modal');
 }
-function closeChangePagePw() { hideModal('change-page-pw-modal'); }
+function closePageSettings() { hideModal('page-settings-modal'); }
 
-async function doChangePagePw() {
-  const newPw  = document.getElementById('change-page-new').value;
-  const newPw2 = document.getElementById('change-page-new2').value;
-  clearError('change-page-pw-error');
+async function doChangeCallPw() {
+  const masterPw = document.getElementById('chg-call-master').value;
+  const newPw    = document.getElementById('chg-call-new').value;
+  const newPw2   = document.getElementById('chg-call-new2').value;
+  clearError('chg-call-error');
 
-  if (newPw.length < 4) return setError('change-page-pw-error', 'Passwort zu kurz (min. 4 Zeichen).');
-  if (newPw !== newPw2) return setError('change-page-pw-error', 'Passwörter stimmen nicht überein.');
+  const masterHash = S.get('master_hash');
+  if (await sha256hex(masterPw) !== masterHash) return setError('chg-call-error', 'Master-Passwort falsch.');
+  if (newPw.length < 4) return setError('chg-call-error', 'Passwort zu kurz (min. 4 Zeichen).');
+  if (newPw !== newPw2) return setError('chg-call-error', 'Passwörter stimmen nicht überein.');
 
-  showSpinner('Passwort ändern…');
+  showSpinner('Aufruf-Passwort ändern…');
   const id      = state.page.id;
   const newHash = await sha256hex(newPw);
   const newSalt = genId();
@@ -711,18 +727,49 @@ async function doChangePagePw() {
   S.set(`page_${id}_hash`,    newHash);
   S.set(`page_${id}_salt`,    newSalt);
   S.set(`page_${id}_content`, enc);
-
-  state.page.password = newPw;
-  state.page.key      = newKey;
+  state.page.key = newKey;
 
   if (state.masterIndex) {
     const p = state.masterIndex.pages.find(p => p.id === id);
-    if (p) { p.password = newPw; await saveMasterIndex(); }
+    if (p) { p.callPassword = newPw; await saveMasterIndex(); }
   }
 
   hideSpinner();
-  closeChangePagePw();
-  toast('Seitenpasswort geändert.');
+  document.getElementById('chg-call-master').value = '';
+  document.getElementById('chg-call-new').value    = '';
+  document.getElementById('chg-call-new2').value   = '';
+  toast('Aufruf-Passwort geändert.');
+}
+
+async function doChangeEditPw() {
+  const oldPw  = document.getElementById('chg-edit-old').value;
+  const newPw  = document.getElementById('chg-edit-new').value;
+  const newPw2 = document.getElementById('chg-edit-new2').value;
+  clearError('chg-edit-error');
+
+  const inputHash  = await sha256hex(oldPw);
+  const editHash   = S.get(`page_${state.page.id}_edit_hash`) || S.get(`page_${state.page.id}_hash`);
+  const masterHash = S.get('master_hash');
+
+  if (inputHash !== editHash && inputHash !== masterHash)
+    return setError('chg-edit-error', 'Aktuelles Änderungs- oder Master-Passwort falsch.');
+  if (newPw.length < 4) return setError('chg-edit-error', 'Passwort zu kurz (min. 4 Zeichen).');
+  if (newPw !== newPw2) return setError('chg-edit-error', 'Passwörter stimmen nicht überein.');
+
+  showSpinner('Änderungs-Passwort ändern…');
+  const newEditHash = await sha256hex(newPw);
+  S.set(`page_${state.page.id}_edit_hash`, newEditHash);
+
+  if (state.masterIndex) {
+    const p = state.masterIndex.pages.find(p => p.id === state.page.id);
+    if (p) { p.editPassword = newPw; await saveMasterIndex(); }
+  }
+
+  hideSpinner();
+  document.getElementById('chg-edit-old').value  = '';
+  document.getElementById('chg-edit-new').value  = '';
+  document.getElementById('chg-edit-new2').value = '';
+  toast('Änderungs-Passwort geändert.');
 }
 
 // ─────────────────────────────────────────────
@@ -732,7 +779,7 @@ async function doChangePagePw() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     // Close any open modal
-    ['secondary-modal','edit-pw-modal','add-page-modal','change-master-modal','change-page-pw-modal'].forEach(hideModal);
+    ['secondary-modal','edit-pw-modal','add-page-modal','change-master-modal','page-settings-modal'].forEach(hideModal);
   }
 });
 

@@ -88,7 +88,7 @@
     <button class="btn-ghost" onclick="logout()">← Zurück</button>
     <h2 id="page-title">Tagebuch</h2>
     <button class="btn-secondary btn-small" onclick="requestEdit()">✏️ Bearbeiten</button>
-    <button class="btn-ghost btn-small" onclick="showChangePagePw()" title="Passwort ändern">🔒</button>
+    <button class="btn-ghost btn-small" onclick="showPageSettings()" title="Passwörter ändern">⚙️</button>
   </div>
   <div id="page-content" class="page-content"></div>
 
@@ -96,7 +96,7 @@
   <div id="edit-pw-modal" class="modal hidden">
     <div class="modal-content">
       <h2>Bearbeiten entsperren</h2>
-      <p>Gib das Seiten- oder Master-Passwort ein.</p>
+      <p>Gib das <strong>Änderungs-Passwort</strong> dieser Seite ein (oder das Master-Passwort).</p>
       <div class="form-group">
         <input type="password" id="edit-pw-input" placeholder="Passwort" onkeypress="onKey(event, verifyEditPw)">
       </div>
@@ -108,22 +108,53 @@
     </div>
   </div>
 
-  <!-- Modal: Seitenpasswort ändern -->
-  <div id="change-page-pw-modal" class="modal hidden">
-    <div class="modal-content">
-      <h2>Seitenpasswort ändern</h2>
-      <div class="form-group">
-        <label>Neues Passwort</label>
-        <input type="password" id="change-page-new" placeholder="Neues Passwort (min. 4 Zeichen)">
+  <!-- Modal: Seiten-Einstellungen (beide Passwörter) -->
+  <div id="page-settings-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>⚙️ Seiten-Einstellungen</h2>
+
+      <div class="settings-section">
+        <h3>Aufruf-Passwort ändern</h3>
+        <p>Steuert, wer diese Seite öffnen kann. Erfordert das Master-Passwort.</p>
+        <div class="form-group">
+          <label>Master-Passwort</label>
+          <input type="password" id="chg-call-master" placeholder="Master-Passwort zur Bestätigung">
+        </div>
+        <div class="form-group">
+          <label>Neues Aufruf-Passwort</label>
+          <input type="password" id="chg-call-new" placeholder="Neues Passwort (min. 4 Zeichen)">
+        </div>
+        <div class="form-group">
+          <label>Bestätigen</label>
+          <input type="password" id="chg-call-new2" placeholder="Wiederholen" onkeypress="onKey(event, doChangeCallPw)">
+        </div>
+        <div id="chg-call-error" class="error hidden"></div>
+        <button class="btn-primary btn-small" onclick="doChangeCallPw()">Aufruf-Passwort ändern</button>
       </div>
-      <div class="form-group">
-        <label>Bestätigen</label>
-        <input type="password" id="change-page-new2" placeholder="Wiederholen" onkeypress="onKey(event, doChangePagePw)">
+
+      <hr class="settings-divider">
+
+      <div class="settings-section">
+        <h3>Änderungs-Passwort ändern</h3>
+        <p>Steuert, wer diese Seite bearbeiten kann.<br>Erfordert das aktuelle Änderungs-Passwort oder das Master-Passwort.</p>
+        <div class="form-group">
+          <label>Aktuelles Änderungs- oder Master-Passwort</label>
+          <input type="password" id="chg-edit-old" placeholder="Zur Bestätigung">
+        </div>
+        <div class="form-group">
+          <label>Neues Änderungs-Passwort</label>
+          <input type="password" id="chg-edit-new" placeholder="Neues Passwort (min. 4 Zeichen)">
+        </div>
+        <div class="form-group">
+          <label>Bestätigen</label>
+          <input type="password" id="chg-edit-new2" placeholder="Wiederholen" onkeypress="onKey(event, doChangeEditPw)">
+        </div>
+        <div id="chg-edit-error" class="error hidden"></div>
+        <button class="btn-primary btn-small" onclick="doChangeEditPw()">Änderungs-Passwort ändern</button>
       </div>
-      <div id="change-page-pw-error" class="error hidden"></div>
-      <div class="modal-buttons">
-        <button class="btn-ghost" onclick="closeChangePagePw()">Abbrechen</button>
-        <button class="btn-primary" onclick="doChangePagePw()">Ändern</button>
+
+      <div class="modal-buttons" style="margin-top:8px">
+        <button class="btn-ghost" onclick="closePageSettings()">Schließen</button>
       </div>
     </div>
   </div>
@@ -169,8 +200,12 @@
         <input type="text" id="new-page-name" placeholder="z.B. Tagebuch 2026">
       </div>
       <div class="form-group">
-        <label>Passwort für diese Seite</label>
-        <input type="password" id="new-page-pw" placeholder="Mindestens 4 Zeichen" onkeypress="onKey(event, createPage)">
+        <label>Aufruf-Passwort</label>
+        <input type="password" id="new-page-call-pw" placeholder="Passwort zum Öffnen der Seite">
+      </div>
+      <div class="form-group">
+        <label>Änderungs-Passwort</label>
+        <input type="password" id="new-page-edit-pw" placeholder="Passwort zum Bearbeiten" onkeypress="onKey(event, createPage)">
       </div>
       <div id="add-page-error" class="error hidden"></div>
       <div class="modal-buttons">
