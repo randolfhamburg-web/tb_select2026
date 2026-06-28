@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tagebuch</title>
+  <link rel="stylesheet" href="style.css">
+  <meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     EINRICHTUNG (Erststart)
+══════════════════════════════════════ -->
+<div id="setup-screen" class="screen hidden">
+  <div class="login-wrapper">
+    <div class="card">
+      <div class="diary-icon">📔</div>
+      <h1>Tagebuch einrichten</h1>
+      <p>Lege ein Master-Passwort fest.<br>Es gewährt dir Zugriff auf alle Seiten.</p>
+
+      <div class="setup-hint">
+        ℹ️ Das Master-Passwort kann nicht wiederhergestellt werden.<br>
+        Bewahre es sicher auf!
+      </div>
+
+      <div class="form-group">
+        <label>Master-Passwort</label>
+        <input type="password" id="setup-pw" placeholder="Mindestens 4 Zeichen" onkeypress="onKey(event, setupMaster)">
+      </div>
+      <div class="form-group">
+        <label>Passwort bestätigen</label>
+        <input type="password" id="setup-pw2" placeholder="Wiederholen" onkeypress="onKey(event, setupMaster)">
+      </div>
+      <div id="setup-error" class="error hidden"></div>
+      <button class="btn-primary" onclick="setupMaster()">Tagebuch erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     LOGIN
+══════════════════════════════════════ -->
+<div id="login-screen" class="screen hidden">
+  <!-- Topbar mit Button für zweites Passwort -->
+  <div class="topbar">
+    <button class="btn-secondary btn-small" onclick="showSecondaryLogin()">
+      🔑 Weitere Seite öffnen
+    </button>
+  </div>
+
+  <div class="login-wrapper">
+    <div class="card">
+      <div class="diary-icon">📔</div>
+      <h1>Mein Tagebuch</h1>
+      <p>Passwort eingeben um eine Seite zu öffnen.</p>
+
+      <div class="form-group">
+        <input type="password" id="login-pw" placeholder="Passwort" onkeypress="onKey(event, loginMain)" autofocus>
+      </div>
+      <div id="login-error" class="error hidden"></div>
+      <button class="btn-primary" onclick="loginMain()">Öffnen</button>
+    </div>
+  </div>
+
+  <!-- Modal: Zweites Passwort -->
+  <div id="secondary-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Weitere Seite öffnen</h2>
+      <p>Gib das Passwort der gewünschten Seite ein.</p>
+      <div class="form-group">
+        <input type="password" id="secondary-pw" placeholder="Passwort" onkeypress="onKey(event, loginSecondary)">
+      </div>
+      <div id="secondary-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="closeSecondaryLogin()">Abbrechen</button>
+        <button class="btn-primary" onclick="loginSecondary()">Öffnen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SEITEN-ANSICHT
+══════════════════════════════════════ -->
+<div id="page-view" class="screen hidden">
+  <div class="header-bar">
+    <button class="btn-ghost" onclick="logout()">← Zurück</button>
+    <h2 id="page-title">Tagebuch</h2>
+    <button class="btn-secondary btn-small" onclick="requestEdit()">✏️ Bearbeiten</button>
+    <button class="btn-ghost btn-small" onclick="showChangePagePw()" title="Passwort ändern">🔒</button>
+  </div>
+  <div id="page-content" class="page-content"></div>
+
+  <!-- Modal: Edit-Passwort -->
+  <div id="edit-pw-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Bearbeiten entsperren</h2>
+      <p>Gib das Seiten- oder Master-Passwort ein.</p>
+      <div class="form-group">
+        <input type="password" id="edit-pw-input" placeholder="Passwort" onkeypress="onKey(event, verifyEditPw)">
+      </div>
+      <div id="edit-pw-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="closeEditPwModal()">Abbrechen</button>
+        <button class="btn-primary" onclick="verifyEditPw()">Entsperren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Seitenpasswort ändern -->
+  <div id="change-page-pw-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Seitenpasswort ändern</h2>
+      <div class="form-group">
+        <label>Neues Passwort</label>
+        <input type="password" id="change-page-new" placeholder="Neues Passwort (min. 4 Zeichen)">
+      </div>
+      <div class="form-group">
+        <label>Bestätigen</label>
+        <input type="password" id="change-page-new2" placeholder="Wiederholen" onkeypress="onKey(event, doChangePagePw)">
+      </div>
+      <div id="change-page-pw-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="closeChangePagePw()">Abbrechen</button>
+        <button class="btn-primary" onclick="doChangePagePw()">Ändern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     BEARBEITEN-ANSICHT
+══════════════════════════════════════ -->
+<div id="edit-view" class="screen hidden">
+  <div class="header-bar">
+    <button class="btn-ghost" onclick="cancelEdit()">✕ Abbrechen</button>
+    <h2>Seite bearbeiten</h2>
+    <button class="btn-primary btn-small" onclick="saveEdit()">💾 Speichern</button>
+  </div>
+  <div id="edit-content" class="page-content edit-mode"></div>
+
+  <!-- Feste Toolbar unten -->
+  <div class="edit-toolbar">
+    <button class="btn-secondary" onclick="addBlock('text')">+ Text</button>
+    <button class="btn-secondary" onclick="addBlock('image')">+ Bild</button>
+    <button class="btn-secondary" onclick="addBlock('video')">+ Video</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MASTER-ANSICHT
+══════════════════════════════════════ -->
+<div id="master-view" class="screen hidden">
+  <div class="header-bar">
+    <button class="btn-ghost" onclick="logout()">← Zurück</button>
+    <h2>Master-Übersicht</h2>
+    <button class="btn-ghost btn-small" onclick="showChangeMasterPw()" title="Master-Passwort ändern">🔒</button>
+    <button class="btn-primary btn-small" onclick="showAddPage()">+ Seite</button>
+  </div>
+  <div id="master-content" class="master-content"></div>
+
+  <!-- Modal: Seite hinzufügen -->
+  <div id="add-page-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Neue Seite erstellen</h2>
+      <div class="form-group">
+        <label>Seitenname</label>
+        <input type="text" id="new-page-name" placeholder="z.B. Tagebuch 2026">
+      </div>
+      <div class="form-group">
+        <label>Passwort für diese Seite</label>
+        <input type="password" id="new-page-pw" placeholder="Mindestens 4 Zeichen" onkeypress="onKey(event, createPage)">
+      </div>
+      <div id="add-page-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="closeAddPage()">Abbrechen</button>
+        <button class="btn-primary" onclick="createPage()">Erstellen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Master-Passwort ändern -->
+  <div id="change-master-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Master-Passwort ändern</h2>
+      <div class="form-group">
+        <label>Aktuelles Passwort</label>
+        <input type="password" id="change-master-old" placeholder="Aktuelles Master-Passwort">
+      </div>
+      <div class="form-group">
+        <label>Neues Passwort</label>
+        <input type="password" id="change-master-new" placeholder="Neues Passwort">
+      </div>
+      <div class="form-group">
+        <label>Bestätigen</label>
+        <input type="password" id="change-master-new2" placeholder="Wiederholen" onkeypress="onKey(event, doChangeMasterPw)">
+      </div>
+      <div id="change-master-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="closeChangeMasterPw()">Abbrechen</button>
+        <button class="btn-primary" onclick="doChangeMasterPw()">Ändern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     GLOBALE UI-ELEMENTE
+══════════════════════════════════════ -->
+
+<!-- Lade-Overlay -->
+<div id="spinner-overlay" class="spinner-overlay hidden">
+  <div class="spinner"></div>
+  <div class="spinner-text">Lädt…</div>
+</div>
+
+<!-- Toast-Nachricht -->
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
