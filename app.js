@@ -69,12 +69,16 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 // STATE
 // ─────────────────────────────────────────────
 
+const GITHUB_REPO   = 'randolfhamburg-web/tb_select2026';
+const GITHUB_BRANCH = 'main';
+
 const state = {
   masterKey: null,
   masterPassword: null,
   masterIndex: null,       // { pages: [{id, name, callPassword, editPassword}] }
   page: null,              // { id, key, content }
   editBlocks: [],
+  githubToken: null,       // nur im Speicher, nie im Klartext in localStorage
 };
 
 // ─────────────────────────────────────────────
@@ -218,6 +222,15 @@ async function authenticate(pw, errorId) {
     state.masterKey      = key;
     state.masterPassword = pw;
     state.masterIndex    = idx;
+
+    // GitHub-Token entschlüsseln falls vorhanden
+    state.githubToken = null;
+    const encTok = S.get('github_token_enc');
+    if (encTok) {
+      const tokData = await decrypt(encTok, key);
+      if (tokData?.token) state.githubToken = tokData.token;
+    }
+
     hideModal('secondary-modal');
     renderMasterView();
     show('master-view');
@@ -546,7 +559,12 @@ function makeEditBlock(block, i) {
           oninput="updateBlock(${i},'content',this.value);refreshPreview(${i})">
         <div class="url-hint">✅ funktioniert: imgur.com, direkte .jpg/.png-Links&nbsp;&nbsp;⚠️ funktioniert meist nicht: OneDrive/Google Drive Share-Links</div>
         <div class="or-divider">ODER</div>
-        <label class="file-upload-btn">📁 Bild hochladen (max. 5 MB, nur auf diesem Gerät)<input type="file" accept="image/*" style="display:none" onchange="uploadImage(event,${i})"></label>
+        ${state.githubToken
+          ? `<label class="file-upload-btn github-btn">☁️ Zu GitHub hochladen (überall sichtbar)<input type="file" accept="image/*" style="display:none" onchange="uploadImageGitHub(event,${i})"></label>`
+          : `<div class="url-hint" style="text-align:center">☁️ GitHub-Upload: Token in der <strong>Master-Ansicht</strong> einrichten</div>`
+        }
+        <div class="or-divider">ODER</div>
+        <label class="file-upload-btn">📁 Lokal hochladen (max. 5 MB, nur auf diesem Gerät)<input type="file" accept="image/*" style="display:none" onchange="uploadImage(event,${i})"></label>
       </div>
       <input class="block-input" type="text" placeholder="Bildunterschrift (optional)"
         oninput="updateBlock(${i},'alt',this.value)" value="${escAttr(block.alt ?? '')}">
@@ -810,6 +828,123 @@ async function doChangeEditPw() {
   document.getElementById('chg-edit-new').value  = '';
   document.getElementById('chg-edit-new2').value = '';
   toast('Änderungs-Passwort geändert.');
+}
+
+// ─────────────────────────────────────────────
+// GITHUB TOKEN MANAGEMENT
+// ─────────────────────────────────────────────
+
+function showGitHubSetup() {
+  const input = document.getElementById('github-token-input');
+  input.value = state.githubToken || '';
+  clearError('github-setup-error');
+  document.getElementById('github-token-status').textContent =
+    state.githubToken ? '✅ Token gespeichert' : '❌ Kein Token hinterlegt';
+  showModal('github-setup-modal');
+}
+
+async function saveGitHubToken() {
+  const token = document.getElementById('github-token-input').value.trim();
+  clearError('github-setup-error');
+
+  if (!token) {
+    S.del('github_token_enc');
+    state.githubToken = null;
+    hideModal('github-setup-modal');
+    toast('GitHub-Token entfernt.');
+    renderMasterView();
+    return;
+  }
+
+  // Token kurz testen
+  showSpinner('Token prüfen…');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (!res.ok) {
+      hideSpinner();
+      return setError('github-setup-error', 'Token ungültig oder kein Zugriff auf das Repo.');
+    }
+  } catch {
+    hideSpinner();
+    return setError('github-setup-error', 'Netzwerkfehler beim Prüfen des Tokens.');
+  }
+
+  const enc = await encrypt({ token }, state.masterKey);
+  S.set('github_token_enc', enc);
+  state.githubToken = token;
+  hideSpinner();
+  hideModal('github-setup-modal');
+  renderMasterView();
+  toast('GitHub-Token gespeichert und geprüft ✅');
+}
+
+// ─────────────────────────────────────────────
+// GITHUB IMAGE UPLOAD
+// ─────────────────────────────────────────────
+
+async function uploadImageToGitHub(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const base64 = e.target.result.split(',')[1];
+        const ext    = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const name   = `${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+        const path   = `images/${name}`;
+
+        const res = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${state.githubToken}`,
+              'Content-Type': 'application/json',
+              'X-GitHub-Api-Version': '2022-11-28'
+            },
+            body: JSON.stringify({
+              message: 'Tagebuch: Bild hochgeladen',
+              content: base64,
+              branch: GITHUB_BRANCH
+            })
+          }
+        );
+
+        if (!res.ok) {
+          const err = await res.json();
+          reject(new Error(err.message || 'Upload fehlgeschlagen'));
+          return;
+        }
+
+        const data = await res.json();
+        resolve(data.content?.download_url ||
+          `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/${path}`);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImageGitHub(evt, i) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    toast('Datei zu groß (max. 10 MB für GitHub-Upload).');
+    return;
+  }
+  showSpinner('Lade zu GitHub hoch…');
+  try {
+    const url = await uploadImageToGitHub(file);
+    state.editBlocks[i].content = url;
+    hideSpinner();
+    renderEditView();
+    toast('✅ Bild hochgeladen und URL eingetragen!');
+  } catch (err) {
+    hideSpinner();
+    toast('Fehler: ' + err.message);
+  }
 }
 
 // ─────────────────────────────────────────────

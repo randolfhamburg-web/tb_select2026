@@ -201,6 +201,7 @@
     <button class="btn-ghost" onclick="logout()">← Zurück</button>
     <h2>Master-Übersicht</h2>
     <button class="btn-ghost btn-small" onclick="showChangeMasterPw()" title="Master-Passwort ändern">🔒</button>
+    <button class="btn-ghost btn-small" onclick="showGitHubSetup()" title="GitHub-Upload einrichten">☁️ GitHub</button>
     <button class="btn-primary btn-small" onclick="showAddPage()">+ Seite</button>
   </div>
   <div id="master-content" class="master-content"></div>
@@ -225,6 +226,36 @@
       <div class="modal-buttons">
         <button class="btn-ghost" onclick="closeAddPage()">Abbrechen</button>
         <button class="btn-primary" onclick="createPage()">Erstellen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: GitHub-Token einrichten -->
+  <div id="github-setup-modal" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>☁️ GitHub-Upload einrichten</h2>
+      <p id="github-token-status" style="font-family:var(--font-ui);font-size:13px;margin-bottom:16px"></p>
+      <p>Mit einem GitHub Personal Access Token werden Bilder direkt ins Repo hochgeladen und sind von jedem Gerät abrufbar.</p>
+
+      <div class="setup-hint" style="text-align:left;margin:16px 0">
+        <strong>So erstellst du den Token:</strong><br>
+        1. github.com → oben rechts dein Profil → <strong>Settings</strong><br>
+        2. Links unten: <strong>Developer settings</strong><br>
+        3. <strong>Fine-grained tokens</strong> → „Generate new token"<br>
+        4. Repository: <strong>randolfhamburg-web/tb_select2026</strong><br>
+        5. Permissions → Repository permissions → <strong>Contents: Read and Write</strong><br>
+        6. Token generieren und hier einfügen
+      </div>
+
+      <div class="form-group">
+        <label>Personal Access Token</label>
+        <input type="password" id="github-token-input" placeholder="github_pat_...">
+      </div>
+      <div id="github-setup-error" class="error hidden"></div>
+      <div class="modal-buttons">
+        <button class="btn-ghost" onclick="hideModal('github-setup-modal')">Abbrechen</button>
+        <button class="btn-danger btn-small" onclick="document.getElementById('github-token-input').value='';saveGitHubToken()">Token entfernen</button>
+        <button class="btn-primary" onclick="saveGitHubToken()">Speichern</button>
       </div>
     </div>
   </div>

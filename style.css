@@ -675,6 +675,12 @@ textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
   line-height: 1.5;
 }
 
+.github-btn {
+  border-color: #238636 !important;
+  color: #238636 !important;
+}
+.github-btn:hover { background: #238636 !important; color: #fff !important; }
+
 /* ── RESET BUTTON ── */
 .btn-reset {
   display: block;
