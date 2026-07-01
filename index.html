@@ -64,6 +64,19 @@
     </div>
   </div>
 
+  <!-- Modal: Reset-Bestätigung -->
+  <div id="reset-confirm-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 style="color:var(--danger)">⚠️ Alles zurücksetzen?</h2>
+      <p>Alle Tagebuch-Seiten, Passwörter und Inhalte werden <strong>unwiderruflich gelöscht</strong>.</p>
+      <p style="margin-top:8px">Dieser Schritt kann nicht rückgängig gemacht werden!</p>
+      <div class="modal-buttons" style="margin-top:24px">
+        <button class="btn-secondary" onclick="closeResetModal()">Abbrechen</button>
+        <button class="btn-danger" onclick="doReset()">Ja, alles löschen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Zweites Passwort -->
   <div id="secondary-modal" class="modal hidden">
     <div class="modal-content">
