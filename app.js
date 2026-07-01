@@ -639,6 +639,19 @@ function logout() {
   show('login-screen');
 }
 
+function resetAll() {
+  if (!confirm('⚠️ Wirklich alles zurücksetzen?\n\nAlle Tagebuch-Seiten und Passwörter werden unwiderruflich gelöscht.\nDieser Schritt kann nicht rückgängig gemacht werden!')) return;
+  if (!confirm('Letzter Hinweis: Alle Daten gehen verloren. Fortfahren?')) return;
+
+  // Alle diary__* Keys aus localStorage löschen
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('diary__'))
+    .forEach(k => localStorage.removeItem(k));
+
+  show('setup-screen');
+  toast('Zurückgesetzt. Bitte neues Master-Passwort festlegen.');
+}
+
 function showSecondaryLogin() {
   clearError('secondary-error');
   showModal('secondary-modal');

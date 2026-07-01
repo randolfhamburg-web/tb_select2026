@@ -654,5 +654,24 @@ textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
   margin: 8px 0 20px;
 }
 
+/* ── RESET BUTTON ── */
+.btn-reset {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.btn-reset:hover { color: var(--danger); }
+
 /* ── MASTER CARD – two password rows ── */
 .master-page-info .password-display + .password-display { margin-top: 4px; }
