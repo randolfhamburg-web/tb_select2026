@@ -654,6 +654,27 @@ textarea { resize: vertical; line-height: 1.6; min-height: 120px; }
   margin: 8px 0 20px;
 }
 
+/* ── IMAGE ERROR / URL HINT ── */
+.img-error {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--danger);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  line-height: 1.6;
+}
+.img-error small { color: var(--text-muted); }
+
+.url-hint {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
 /* ── RESET BUTTON ── */
 .btn-reset {
   display: block;

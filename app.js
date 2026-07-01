@@ -120,6 +120,29 @@ function escHtml(s) {
 }
 function escAttr(s) { return (s ?? '').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// Versucht bekannte Share-Links in direkte Bild-URLs umzuwandeln
+function normalizeImageUrl(url) {
+  if (!url) return url;
+
+  // Google Drive: /file/d/ID/view  →  direkter Download-Link
+  const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
+  if (gdMatch) return `https://drive.google.com/uc?export=view&id=${gdMatch[1]}`;
+
+  // Google Drive: /open?id=ID
+  const gdOpen = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+  if (gdOpen) return `https://drive.google.com/uc?export=view&id=${gdOpen[1]}`;
+
+  return url; // alle anderen URLs unverändert zurückgeben
+}
+
+function imgErrorHtml() {
+  return `<div class="img-error">
+    ⚠️ Bild konnte nicht geladen werden.<br>
+    <small>Direkte Bild-URLs funktionieren – Share-Links von OneDrive/Google Drive meist nicht.<br>
+    Empfehlung: <strong>imgur.com</strong> (kostenlos, direkte Links)</small>
+  </div>`;
+}
+
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
@@ -263,12 +286,13 @@ function makeViewBlock(block) {
 
   } else if (block.type === 'image') {
     el.classList.add('image-block');
-    const src = block.content ?? '';
+    const src = normalizeImageUrl(block.content ?? '');
     const alt = block.alt ?? '';
+    const errHandler = `this.parentElement.innerHTML=imgErrorHtml()`;
     if (alt) {
-      el.innerHTML = `<figure><img src="${escAttr(src)}" alt="${escAttr(alt)}" loading="lazy"><figcaption>${escHtml(alt)}</figcaption></figure>`;
+      el.innerHTML = `<figure><img src="${escAttr(src)}" alt="${escAttr(alt)}" loading="lazy" onerror="${errHandler}"><figcaption>${escHtml(alt)}</figcaption></figure>`;
     } else {
-      el.innerHTML = `<img src="${escAttr(src)}" alt="" loading="lazy">`;
+      el.innerHTML = `<img src="${escAttr(src)}" alt="" loading="lazy" onerror="${errHandler}">`;
     }
 
   } else if (block.type === 'video') {
@@ -517,16 +541,17 @@ function makeEditBlock(block, i) {
     el.innerHTML = `
       <div class="edit-block-header"><span class="block-type-badge">🖼️ Bild</span>${controls}</div>
       <div class="image-input-group">
-        <input class="block-input" type="text" placeholder="Bild-URL (z.B. OneDrive-Link)"
+        <input class="block-input" type="text" placeholder="Direkte Bild-URL (imgur.com empfohlen)"
           value="${isData ? '' : escAttr(block.content ?? '')}"
           oninput="updateBlock(${i},'content',this.value);refreshPreview(${i})">
+        <div class="url-hint">✅ funktioniert: imgur.com, direkte .jpg/.png-Links&nbsp;&nbsp;⚠️ funktioniert meist nicht: OneDrive/Google Drive Share-Links</div>
         <div class="or-divider">ODER</div>
-        <label class="file-upload-btn">📁 Bild hochladen (max. 5 MB)<input type="file" accept="image/*" style="display:none" onchange="uploadImage(event,${i})"></label>
+        <label class="file-upload-btn">📁 Bild hochladen (max. 5 MB, nur auf diesem Gerät)<input type="file" accept="image/*" style="display:none" onchange="uploadImage(event,${i})"></label>
       </div>
       <input class="block-input" type="text" placeholder="Bildunterschrift (optional)"
         oninput="updateBlock(${i},'alt',this.value)" value="${escAttr(block.alt ?? '')}">
       <div id="preview-${i}" class="block-preview">
-        ${block.content ? `<img src="${escAttr(block.content)}" class="preview-img" alt="">` : '<div class="no-preview">Kein Bild ausgewählt</div>'}
+        ${block.content ? `<img src="${escAttr(normalizeImageUrl(block.content))}" class="preview-img" alt="" onerror="this.outerHTML=imgErrorHtml()">` : '<div class="no-preview">Kein Bild ausgewählt</div>'}
       </div>`;
 
   } else if (block.type === 'video') {
@@ -577,9 +602,9 @@ function addBlock(type) {
 function refreshPreview(i) {
   const wrap = document.getElementById(`preview-${i}`);
   if (!wrap) return;
-  const src = state.editBlocks[i]?.content ?? '';
+  const src = normalizeImageUrl(state.editBlocks[i]?.content ?? '');
   wrap.innerHTML = src
-    ? `<img src="${escAttr(src)}" class="preview-img" alt="">`
+    ? `<img src="${escAttr(src)}" class="preview-img" alt="" onerror="this.outerHTML=imgErrorHtml()">`
     : '<div class="no-preview">Kein Bild ausgewählt</div>';
 }
 
